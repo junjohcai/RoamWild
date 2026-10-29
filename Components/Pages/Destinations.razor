@@ -1,7 +1,9 @@
 @page "/destinations"
 @using MyBlazorApp.Components.Shared
 @using MyBlazorApp.Models
+@using System.Globalization
 @inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
 @rendermode InteractiveServer
 
 <PageTitle>Roamwild - All Destinations</PageTitle>
@@ -38,6 +40,37 @@
     <section class="mx-auto max-w-[1440px] px-5 py-20 md:px-10 lg:px-16">
         <p class="text-xs font-bold uppercase tracking-[0.2em] text-coral">Explore the Globe</p>
         <h1 class="font-display text-5xl md:text-7xl leading-tight mt-4">All <em>Destinations.</em></h1>
+
+        <!-- Search results summary -->
+        @if (HasSearch)
+        {
+            <div class="mt-8 flex flex-wrap items-center gap-3 rounded-2xl bg-white/70 px-5 py-4">
+                <p class="text-sm font-medium">
+                    <strong>@filteredDestinations.Count</strong> @(filteredDestinations.Count == 1 ? "journey" : "journeys")
+                    @if (!string.IsNullOrWhiteSpace(Query))
+                    {
+                        <text>for <strong>“@Query”</strong></text>
+                    }
+                </p>
+
+                @if (TravelDate.HasValue)
+                {
+                    <span class="inline-flex items-center gap-2 rounded-full bg-forest/5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-forest/70">
+                        <AppIcon Name="calendar" Size="14" /> @TravelDate.Value.ToString("ddd, d MMM yyyy", CultureInfo.InvariantCulture)
+                    </span>
+                }
+                @if (TravellersLabel != null)
+                {
+                    <span class="inline-flex items-center gap-2 rounded-full bg-forest/5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-forest/70">
+                        <AppIcon Name="users" Size="14" /> @TravellersLabel
+                    </span>
+                }
+
+                <button @onclick="ClearSearch" class="ml-auto inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-coral transition-opacity hover:opacity-70">
+                    Clear search <AppIcon Name="x" Size="14" />
+                </button>
+            </div>
+        }
         
         <!-- Filter Bar -->
         <div class="mt-12 flex flex-wrap items-center gap-4 border-b border-forest/10 pb-6">
@@ -81,6 +114,23 @@
                     </article>
                 }
             }
+            else
+            {
+                <div class="col-span-full rounded-[1.75rem] bg-white/60 px-8 py-16 text-center">
+                    <span class="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-full bg-coral/15 text-coral">
+                        <AppIcon Name="search" Size="24" />
+                    </span>
+                    <h3 class="font-display text-3xl">No journeys found</h3>
+                    <p class="mx-auto mt-3 max-w-md text-sm leading-6 text-forest/70">@NoResultsMessage</p>
+                    <div class="mt-6 flex flex-wrap justify-center gap-3">
+                        @foreach (var suggestion in Suggestions)
+                        {
+                            <a href="/destinations?query=@Uri.EscapeDataString(suggestion)" class="rounded-full bg-white px-5 py-2 text-sm font-semibold transition-colors hover:bg-forest hover:text-white">@suggestion</a>
+                        }
+                    </div>
+                    <button @onclick="ClearSearch" class="mt-8 rounded-full bg-forest px-8 py-3 text-sm font-semibold text-white transition-transform hover:scale-105">View all destinations</button>
+                </div>
+            }
         </div>
     </section>
 
@@ -116,6 +166,12 @@
                 else
                 {
                     <div class="mt-6">
+                        @if (HasSearch && (TravelDate.HasValue || TravellersLabel != null))
+                        {
+                            <p class="mb-3 text-xs font-bold uppercase tracking-widest text-forest/50">
+                                Your trip · @TripSummary
+                            </p>
+                        }
                         <p class="text-sm text-forest/70 leading-relaxed">Enter your email address and our local guides will send you the custom route details, available dates, and booking process.</p>
 
                         <form @onsubmit="SubmitInquiry" class="mt-6 space-y-4">
@@ -145,35 +201,120 @@
     private List<DestinationItem> allDestinations = new()
     {
         // ASIA
-        new("Lagoons beyond the map", "Coron, Philippines", "Asia", "7 Days", "https://images.unsplash.com/photo-1570789210967-2cac24afeb00", "Coron, Philippines"),
+        new("Lagoons beyond the map", "Coron, Philippines", "Asia", "7 Days", "/images/coron.jpg", "Coron, Philippines"),
         new("Slow days under palms", "Siargao, Philippines", "Asia", "8 Days", "https://images.unsplash.com/photo-1512343879784-a960bf40e7f2", "Siargao, Philippines"),
         new("Barefoot in the blue", "Baa Atoll, Maldives", "Asia", "6 Days", "https://images.unsplash.com/photo-1514282401047-d79a71a590e8", "Maldives"),
         new("Kyoto in full bloom", "Kyoto, Japan", "Asia", "9 Days", "https://dynamic-media.tacdn.com/media/photo-o/34/1d/af/f2/caption.jpg?f=webp&w=2400&h=1400", "Kyoto, Japan"),
-        new("Bamboo Forest Trails", "Arashiyama, Japan", "Asia", "5 Days", "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e", "Arashiyama Bamboo Grove"),
-        new("Temple & Tea Retreat", "Uji, Japan", "Asia", "4 Days", "https://images.unsplash.com/photo-1503899036084-c55cdd92da26", "Uji Japan"),
+        new("Bamboo Forest Trails", "Arashiyama, Japan", "Asia", "5 Days", "/images/bamboo.jpg", "Arashiyama Bamboo Grove"),
+        new("Temple & Tea Retreat", "Uji, Japan", "Asia", "4 Days", "/images/uji.jpg", "Uji Japan"),
         new("Ubud Jungle Sanctuary", "Ubud, Bali", "Asia", "6 Days", "https://images.unsplash.com/photo-1537996194471-e657df975ab4", "Bali Indonesia"),
 
         // EUROPE
-        new("High peaks & quiet lakes", "Bernese Alps, Switzerland", "Europe", "7 Days", "https://images.unsplash.com/photo-1531366936337-7c912a4589a7", "Swiss Alps"),
-        new("Matterhorn Base Camp", "Zermatt, Switzerland", "Europe", "6 Days", "https://images.unsplash.com/photo-1502145882672-972c7221da43", "Zermatt Matterhorn"),
-        new("Glacier Express Route", "St. Moritz, Switzerland", "Europe", "5 Days", "https://images.unsplash.com/photo-1527668743097-a62371d79867", "St Moritz"),
-        new("Path of the Gods", "Amalfi Coast, Italy", "Europe", "6 Days", "https://images.unsplash.com/photo-1516483638261-f40889d04f6d", "Amalfi Coast"),
-        new("Caldera Sail & Sunsets", "Santorini, Greece", "Europe", "5 Days", "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5f1", "Santorini Greece"),
+        new("High peaks & quiet lakes", "Bernese Alps, Switzerland", "Europe", "7 Days", "/images/switzer.jpg", "Swiss Alps"),
+        new("Matterhorn Base Camp", "Zermatt, Switzerland", "Europe", "6 Days", "/images/matterhorn.jpg", "Zermatt Matterhorn"),
+        new("Glacier Express Route", "St. Moritz, Switzerland", "Europe", "5 Days", "/images/express.jpg", "St Moritz"),
+        new("Path of the Gods", "Amalfi Coast, Italy", "Europe", "6 Days", "/images/potg.jpg", "Amalfi Coast"),
+        new("Caldera Sail & Sunsets", "Santorini, Greece", "Europe", "5 Days", "/images/caldera.jpg", "Santorini Greece"),
 
         // AFRICA
-        new("Follow the old caravan road", "Sahara, Morocco", "Africa", "8 Days", "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9", "Sahara Desert"),
-        new("Atlas Mountain Kasbahs", "Marrakech, Morocco", "Africa", "5 Days", "https://images.unsplash.com/photo-1539650116574-8efeb43e2750", "Morocco"),
+        new("Follow the old caravan road", "Sahara, Morocco", "Africa", "8 Days", "/images/sahara.jpg", "Sahara Desert"),
+        new("Atlas Mountain Kasbahs", "Marrakech, Morocco", "Africa", "5 Days", "/images/morocco.jpg", "Morocco"),
         new("Wild encounters & golden light", "Maasai Mara, Kenya", "Africa", "6 Days", "https://images.unsplash.com/photo-1516426122078-c23e76319801", "Maasai Mara"),
         new("Rift Valley Safari", "Lake Nakuru, Kenya", "Africa", "4 Days", "https://images.unsplash.com/photo-1534567153574-2b12153a87f0", "Kenya Safari"),
 
         // SOUTH AMERICA
-        new("Untamed peaks & glaciers", "Patagonia, Chile", "South America", "7 Days", "https://images.unsplash.com/photo-1518182170546-0766de6b6aad", "Patagonia Chile"),
-        new("The W Trek Explorer", "Torres del Paine", "South America", "8 Days", "https://images.unsplash.com/photo-1517411648083-4a1b0be0dce0", "Torres del Paine")
+        new("Untamed peaks & glaciers", "Patagonia, Chile", "South America", "7 Days", "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTRptrajOFcnDbEBsASDlCj0nVtAWzp9GbwJX9_cHVR-6HHBD3f1ySyqU&s=10", "Patagonia Chile"),
+        new("The W Trek Explorer", "Torres del Paine", "South America", "8 Days", "https://images4.alphacoders.com/108/1088263.jpg", "Torres del Paine")
     };
 
-    private List<DestinationItem> filteredDestinations => activeFilter == "All" 
-        ? allDestinations 
-        : allDestinations.Where(d => d.Continent == activeFilter).ToList();
+    // ---- Search values passed from the home page (/destinations?query=...&date=...&travellers=...) ----
+    [Parameter, SupplyParameterFromQuery(Name = "query")] public string? Query { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "date")] public string? DateParam { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "travellers")] public string? TravellersParam { get; set; }
+
+    private static readonly string[] Suggestions = { "Philippines", "Japan", "Switzerland", "Morocco", "Kenya" };
+    private static readonly HashSet<string> StopWords = new(StringComparer.OrdinalIgnoreCase) { "the", "and", "island", "islands" };
+    private static readonly Dictionary<string, string> Aliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["palawan"] = "philippines",
+        ["swiss"] = "switzerland"
+    };
+
+    // Only accept a valid date from tomorrow onwards, even if someone edits the URL by hand
+    private DateTime? TravelDate =>
+        DateTime.TryParseExact(DateParam, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+        && d.Date >= DateTime.Today.AddDays(1) ? d.Date : null;
+
+    private string? TravellersLabel => TravellersParam switch
+    {
+        "1" => "1 traveller",
+        "2" => "2 travellers",
+        "3" => "3 travellers",
+        "4" => "4+ travellers",
+        _ => null
+    };
+
+    private string TripSummary
+    {
+        get
+        {
+            var bits = new List<string>();
+            if (TravelDate.HasValue) bits.Add(TravelDate.Value.ToString("ddd, d MMM yyyy", CultureInfo.InvariantCulture));
+            if (TravellersLabel != null) bits.Add(TravellersLabel);
+            return string.Join(" · ", bits);
+        }
+    }
+
+    private string NoResultsMessage
+    {
+        get
+        {
+            var msg = "We couldn’t find a match";
+            if (!string.IsNullOrWhiteSpace(Query)) msg += $" for “{Query}”";
+            if (activeFilter != "All") msg += $" in {activeFilter}";
+            return msg + ". We’re always adding places, so try a popular destination or browse everything.";
+        }
+    }
+
+    private bool HasSearch => !string.IsNullOrWhiteSpace(Query) || TravelDate.HasValue;
+
+    private List<string> SearchTokens =>
+        (Query ?? "").Split(new[] { ',', ' ', '-' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(t => t.Length >= 3 && !StopWords.Contains(t))
+            .Select(t => Aliases.TryGetValue(t, out var a) ? a : t)
+            .ToList();
+
+    private static int Score(DestinationItem d, List<string> tokens)
+    {
+        var haystack = $"{d.Title} {d.Location} {d.Continent} {d.Alt}";
+        return tokens.Count(t => haystack.Contains(t, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private List<DestinationItem> filteredDestinations
+    {
+        get
+        {
+            var items = activeFilter == "All"
+                ? allDestinations
+                : allDestinations.Where(d => d.Continent == activeFilter).ToList();
+
+            var tokens = SearchTokens;
+            if (tokens.Count == 0) return items;
+
+            // Best matches first; LINQ ordering is stable so ties keep their original order
+            return items.Select(d => (Item: d, Score: Score(d, tokens)))
+                        .Where(x => x.Score > 0)
+                        .OrderByDescending(x => x.Score)
+                        .Select(x => x.Item)
+                        .ToList();
+        }
+    }
+
+    private void ClearSearch()
+    {
+        activeFilter = "All";
+        Navigation.NavigateTo("/destinations");
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

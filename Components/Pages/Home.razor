@@ -81,15 +81,12 @@
             <span class="ml-2 flex items-center gap-2 text-white"><AppIcon Name="location" Size="15" /> @slide.Location</span>
         </div>
 
-        <form @onsubmit="SubmitSearch" @onsubmit:preventDefault="true" class="search-panel absolute bottom-0 left-1/2 z-20 grid w-[calc(100%-2.5rem)] max-w-[1312px] -translate-x-1/2 translate-y-1/2 grid-cols-1 overflow-hidden rounded-2xl bg-white text-forest shadow-2xl md:grid-cols-[1.15fr_1fr_.75fr_auto] md:rounded-full">
+        <form @onsubmit="SubmitSearch" @onsubmit:preventDefault="true" class="search-panel absolute bottom-0 left-1/2 z-20 grid w-[calc(100%-2.5rem)] max-w-[1312px] -translate-x-1/2 translate-y-1/2 grid-cols-1 rounded-2xl bg-white text-forest shadow-2xl md:grid-cols-[1.15fr_1fr_.75fr_auto] md:rounded-full">
             <label class="search-field border-b border-forest/10 px-6 py-4 md:border-b-0 md:border-r">
                 <span class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-forest/70"><AppIcon Name="location" Size="18" /> Where do you want to go?</span>
-                <input @bind="searchDestination" class="w-full bg-transparent text-sm font-medium text-forest outline-none mt-1" placeholder="@slide.Search" />
+                <input @bind="searchDestination" @bind:event="oninput" class="w-full bg-transparent text-sm font-medium text-forest outline-none mt-1" placeholder="@slide.Search" />
             </label>
-            <label class="search-field border-b border-forest/10 px-6 py-4 md:border-b-0 md:border-r">
-                <span class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-forest/70"><AppIcon Name="calendar" Size="18" /> When?</span>
-                <input @bind="searchDates" class="w-full bg-transparent text-sm font-medium text-forest outline-none mt-1" placeholder="Choose your dates" />
-            </label>
+            <DatePicker @bind-Value="travelDate" />
             <label class="search-field border-b border-forest/10 px-6 py-4 md:border-b-0 md:border-r">
                 <span class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-forest/70"><AppIcon Name="users" Size="18" /> Travellers</span>
                 <select @bind="searchTravellers" class="w-full bg-transparent text-sm font-medium text-forest outline-none mt-1">
@@ -99,7 +96,7 @@
                     <option value="4">4+ travellers</option>
                 </select>
             </label>
-            <button type="submit" class="m-2 flex items-center justify-center gap-2 rounded-xl bg-coral px-8 py-4 font-semibold text-white transition-all hover:bg-coral-dark md:rounded-full">
+            <button type="submit" disabled="@IsSearchDisabled" title="@(IsSearchDisabled ? "Enter a destination to continue" : null)" class="m-2 flex items-center justify-center gap-2 rounded-xl px-8 py-4 font-semibold transition-all md:rounded-full @(IsSearchDisabled ? "cursor-not-allowed bg-forest/10 text-forest/40" : "bg-coral text-white hover:bg-coral-dark")">
                 <AppIcon Name="search" Size="19" /> Explore
             </button>
         </form>
@@ -281,6 +278,62 @@
             </div>
         </div>
     </footer>
+    <!-- Inquiry popup (opens when Explore is clicked) -->
+    @if (showInquiry)
+    {
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-fadeIn" @onclick="CloseInquiry">
+            <div class="w-full max-w-lg rounded-[2rem] border border-forest/10 bg-cream p-8 text-forest shadow-2xl md:p-10"
+                 role="dialog" aria-modal="true" aria-label="Inquire about your journey" @onclick:stopPropagation="true">
+
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-[0.2em] text-coral">Inquire about journey</span>
+                        <h3 class="mt-1 font-display text-3xl leading-tight">@inquiryDestination</h3>
+                        @if (!string.IsNullOrEmpty(inquiryTrip))
+                        {
+                            <p class="mt-1 text-xs font-bold uppercase tracking-widest text-forest/50">@inquiryTrip</p>
+                        }
+                    </div>
+                    <button @onclick="CloseInquiry" class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest/5 text-forest transition-colors hover:bg-forest hover:text-white" aria-label="Close">
+                        <AppIcon Name="x" Size="18" />
+                    </button>
+                </div>
+
+                @if (inquirySubmitted)
+                {
+                    <div class="py-8 text-center">
+                        <span class="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-coral/20 text-coral">
+                            <AppIcon Name="heart" Size="28" />
+                        </span>
+                        <h3 class="mb-2 font-display text-3xl">You're on the list!</h3>
+                        <p class="text-sm leading-6 text-forest/70">
+                            Thanks for your interest in <strong>@inquiryDestination</strong>. One of our local guides will contact you at <em>@inquiryEmail</em> regarding your trip, with the route details, available dates, and booking process.
+                        </p>
+                        <button @onclick="CloseInquiry" class="mt-8 rounded-full bg-forest px-8 py-3 text-sm font-semibold text-white transition-transform hover:scale-105">Back to home</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="mt-6">
+                        <p class="text-sm leading-relaxed text-forest/70">Enter your email address and our local guides will send you the custom route details, available dates, and booking process.</p>
+
+                        <form @onsubmit="SubmitInquiry" @onsubmit:preventDefault="true" class="mt-6 space-y-4">
+                            <div>
+                                <label class="mb-2 block text-xs font-bold uppercase tracking-widest text-forest/70">Email address</label>
+                                <input required @bind="inquiryEmail" type="email" class="w-full rounded-xl border border-forest/10 bg-white px-5 py-4 text-sm outline-none transition-colors focus:border-coral" placeholder="jane@example.com" />
+                            </div>
+                            <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl bg-coral px-8 py-4 text-sm font-semibold text-white transition-all hover:bg-coral-dark">
+                                Request Details <AppIcon Name="arrow" Size="18" />
+                            </button>
+                            <p class="text-center text-xs leading-5 text-forest/55">
+                                Our team will contact you by email regarding your trip.
+                            </p>
+                        </form>
+                    </div>
+                }
+            </div>
+        </div>
+    }
 </main>
 
 @code {
@@ -293,7 +346,7 @@
     private string notice = "";
 
     private string searchDestination = "";
-    private string searchDates = "";
+    private DateTime? travelDate;
     private string searchTravellers = "2";
 
     private void MoveSlide(int direction)
@@ -307,11 +360,56 @@
         else saved.Add(title);
     }
 
+    // Inquiry popup state
+    private bool showInquiry;
+    private bool inquirySubmitted;
+    private string inquiryEmail = "";
+    private string inquiryDestination = "";
+    private string inquiryTrip = "";
+
+    // Explore is unavailable until a destination is entered
+    private bool IsSearchDisabled => string.IsNullOrWhiteSpace(searchDestination);
+
+    private string TravellersLabel => searchTravellers switch
+    {
+        "1" => "1 traveller",
+        "2" => "2 travellers",
+        "3" => "3 travellers",
+        "4" => "4+ travellers",
+        _ => ""
+    };
+
     private void SubmitSearch()
     {
-        var dest = string.IsNullOrWhiteSpace(searchDestination) ? "your chosen destination" : searchDestination;
-        notice = $"We’re finding the best journeys for {dest}.";
+        if (IsSearchDisabled) return; // also blocks pressing Enter with an empty field
+
+        // Server-side safety net: never accept a past date
+        if (travelDate.HasValue && travelDate.Value.Date < DateTime.Today.AddDays(1))
+        {
+            travelDate = null;
+            notice = "Please choose a travel date from tomorrow onwards.";
+            return;
+        }
+
+        // Snapshot the search so the popup doesn't change if the fields are edited behind it
+        inquiryDestination = searchDestination.Trim();
+
+        var bits = new List<string>();
+        if (travelDate.HasValue)
+            bits.Add(travelDate.Value.ToString("ddd, d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture));
+        if (TravellersLabel != "")
+            bits.Add(TravellersLabel);
+        inquiryTrip = string.Join(" · ", bits);
+
+        inquiryEmail = "";
+        inquirySubmitted = false;
+        notice = string.Empty;
+        showInquiry = true;
     }
+
+    private void CloseInquiry() => showInquiry = false;
+
+    private void SubmitInquiry() => inquirySubmitted = true;
 }
 
 <style>

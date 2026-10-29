@@ -1,0 +1,185 @@
+@using System.Globalization
+
+<div class="relative flex flex-col gap-1 border-b border-forest/10 px-6 py-4 md:border-b-0 md:border-r"
+     @onkeydown="OnKeyDown" @onfocusin="OnFocusIn" @onfocusout="OnFocusOut">
+
+    <span class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-forest/70">
+        <AppIcon Name="calendar" Size="18" /> When?
+    </span>
+
+    <button type="button" @ref="toggleBtn" @onclick="Toggle"
+            aria-haspopup="dialog" aria-expanded="@(isOpen ? "true" : "false")"
+            class="mt-1 w-full text-left text-sm font-medium outline-none">
+        <span class="@(Value.HasValue ? "text-forest" : "text-forest/40")">
+            @(Value.HasValue ? Value.Value.ToString("ddd, d MMM yyyy", Culture) : "Choose your date")
+        </span>
+    </button>
+
+    @if (isOpen)
+    {
+        var first = viewMonth;
+        var blanks = (int)first.DayOfWeek;
+        var daysInMonth = DateTime.DaysInMonth(first.Year, first.Month);
+
+        <div @ref="popover" tabindex="-1" role="dialog" aria-label="Choose your travel date"
+             class="absolute bottom-full left-0 z-50 mb-4 w-80 max-w-[calc(100vw-2.5rem)] rounded-2xl border border-forest/10 bg-white p-4 text-forest shadow-2xl outline-none">
+
+            <!-- Month navigation -->
+            <div class="mb-3 flex items-center justify-between">
+                <button type="button" @onclick="PrevMonth" disabled="@(!CanGoPrev)" aria-label="Previous month"
+                        class="grid h-9 w-9 place-items-center rounded-full transition-colors hover:bg-forest/10 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent">
+                    <span class="block rotate-180"><AppIcon Name="arrow" Size="16" /></span>
+                </button>
+
+                <p class="font-display text-lg" aria-live="polite">@viewMonth.ToString("MMMM yyyy", Culture)</p>
+
+                <button type="button" @onclick="NextMonth" disabled="@(!CanGoNext)" aria-label="Next month"
+                        class="grid h-9 w-9 place-items-center rounded-full transition-colors hover:bg-forest/10 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent">
+                    <AppIcon Name="arrow" Size="16" />
+                </button>
+            </div>
+
+            <!-- Weekday header -->
+            <div class="grid grid-cols-7 text-center text-[11px] font-bold uppercase tracking-widest text-forest/50">
+                @foreach (var d in WeekDays)
+                {
+                    <div class="py-2">@d</div>
+                }
+            </div>
+
+            <!-- Days -->
+            <div class="grid grid-cols-7 gap-y-1">
+                @for (int i = 0; i < blanks; i++)
+                {
+                    <div></div>
+                }
+                @for (int day = 1; day <= daysInMonth; day++)
+                {
+                    var date = new DateTime(first.Year, first.Month, day);
+                    var isPast = date < Min;
+                    var isSelected = Value.HasValue && Value.Value.Date == date;
+
+                    <button type="button" @onclick="() => Select(date)" disabled="@isPast"
+                            aria-label="@date.ToString("dddd, d MMMM yyyy", Culture)"
+                            aria-pressed="@(isSelected ? "true" : "false")"
+                            aria-current="@(date == DateTime.Today ? "date" : null)"
+                            class="@DayClass(date, isPast, isSelected)">
+                        @day
+                    </button>
+                }
+            </div>
+
+            <!-- Footer -->
+            <div class="mt-3 flex items-center justify-between border-t border-forest/10 pt-3 text-xs">
+                <p class="text-forest/60">Available from @Min.ToString("d MMM yyyy", Culture)</p>
+                <button type="button" @onclick="Clear" disabled="@(!Value.HasValue)"
+                        class="font-bold uppercase tracking-widest text-coral transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-30">
+                    Clear
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public DateTime? Value { get; set; }
+    [Parameter] public EventCallback<DateTime?> ValueChanged { get; set; }
+
+    /// <summary>Earliest selectable date. Defaults to tomorrow.</summary>
+    [Parameter] public DateTime? MinDate { get; set; }
+
+    /// <summary>How many months ahead the user can browse.</summary>
+    [Parameter] public int MaxMonthsAhead { get; set; } = 24;
+
+    private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
+    private static readonly string[] WeekDays = { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" };
+
+    private bool isOpen;
+    private bool hasFocus;
+    private bool focusPopover;
+    private bool focusToggle;
+    private DateTime viewMonth;
+    private ElementReference popover;
+    private ElementReference toggleBtn;
+
+    private DateTime Min => (MinDate ?? DateTime.Today.AddDays(1)).Date;
+    private DateTime MinMonth => new(Min.Year, Min.Month, 1);
+    private bool CanGoPrev => viewMonth > MinMonth;
+    private bool CanGoNext => viewMonth < MinMonth.AddMonths(MaxMonthsAhead);
+
+    private void Toggle()
+    {
+        if (isOpen)
+        {
+            isOpen = false;
+            return;
+        }
+
+        var anchor = Value.HasValue && Value.Value.Date >= Min ? Value.Value : Min;
+        viewMonth = new DateTime(anchor.Year, anchor.Month, 1);
+        isOpen = true;
+        focusPopover = true;
+    }
+
+    private void PrevMonth() { if (CanGoPrev) viewMonth = viewMonth.AddMonths(-1); }
+    private void NextMonth() { if (CanGoNext) viewMonth = viewMonth.AddMonths(1); }
+
+    private async Task Select(DateTime date)
+    {
+        if (date.Date < Min) return; // safety net: never accept a past date
+
+        Value = date.Date;
+        await ValueChanged.InvokeAsync(Value);
+        isOpen = false;
+        focusToggle = true;
+    }
+
+    private async Task Clear()
+    {
+        Value = null;
+        await ValueChanged.InvokeAsync(null);
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape" && isOpen)
+        {
+            isOpen = false;
+            focusToggle = true;
+        }
+    }
+
+    // Close when focus leaves the whole component (click outside / Tab away).
+    // The short delay lets focus move between buttons inside it without closing.
+    private void OnFocusIn() => hasFocus = true;
+
+    private async Task OnFocusOut()
+    {
+        hasFocus = false;
+        await Task.Delay(200);
+        if (!hasFocus && isOpen) isOpen = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focusPopover)
+        {
+            focusPopover = false;
+            await popover.FocusAsync();
+        }
+        else if (focusToggle)
+        {
+            focusToggle = false;
+            await toggleBtn.FocusAsync();
+        }
+    }
+
+    private static string DayClass(DateTime date, bool isPast, bool isSelected)
+    {
+        const string baseCls = "mx-auto grid h-10 w-10 place-items-center rounded-full text-sm font-medium transition-colors";
+
+        if (isSelected) return baseCls + " bg-coral text-white shadow-md";
+        if (isPast) return baseCls + " cursor-not-allowed text-forest/25" + (date == DateTime.Today ? " ring-1 ring-forest/15" : "");
+        return baseCls + " hover:bg-forest/10 focus-visible:ring-2 focus-visible:ring-coral";
+    }
+}
