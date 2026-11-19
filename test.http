@@ -1,0 +1,12 @@
+@url = https://xqntcbhbanvuuknjeizg.supabase.co
+@key = sb_publishable_5E7cz-tPaRmxTTZvp_8jKQ_LvxQVmbx
+
+### Test fetching all destinations
+GET {{url}}/rest/v1/destinations?select=*
+apikey: {{key}}
+Authorization: Bearer {{key}}
+
+### Test filtering active destinations (Habit 2: filter in database)
+GET {{url}}/rest/v1/destinations?deleted_at=is.null&select=*
+apikey: {{key}}
+Authorization: Bearer {{key}}

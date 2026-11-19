@@ -6,6 +6,38 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Supabase registration (Milestone Step 4)
+var supabaseUrl = builder.Configuration["Supabase:Url"] ?? "";
+var supabaseKey = builder.Configuration["Supabase:Key"] ?? "";
+
+var supabaseOptions = new Supabase.SupabaseOptions
+{
+    AutoConnectRealtime = false
+};
+
+var supabaseClient = new Supabase.Client(
+    string.IsNullOrWhiteSpace(supabaseUrl) ? "https://placeholder.supabase.co" : supabaseUrl,
+    string.IsNullOrWhiteSpace(supabaseKey) ? "placeholder" : supabaseKey,
+    supabaseOptions
+);
+
+if (!string.IsNullOrWhiteSpace(supabaseUrl) &&
+    !string.IsNullOrWhiteSpace(supabaseKey) &&
+    !supabaseUrl.Contains("YOUR-PROJECT-REF") &&
+    !supabaseUrl.Contains("YOUR-REF"))
+{
+    try
+    {
+        await supabaseClient.InitializeAsync();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Supabase] Warning during initialization: {ex.Message}");
+    }
+}
+
+builder.Services.AddSingleton(supabaseClient);
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -25,3 +57,4 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
